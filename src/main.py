@@ -1,3 +1,7 @@
+"""Launch a local server for the Golf With Your Friends browser game."""
+
+from http.server import ThreadingHTTPServer, SimpleHTTPRequestHandler
+from pathlib import Path
 """Terminal mini-golf party game: golf with your friends."""
 
 from __future__ import annotations
@@ -6,6 +10,16 @@ from dataclasses import dataclass
 import random
 from typing import List
 
+def main() -> None:
+    """Serve the src directory so the game can be played in a browser."""
+    root = Path(__file__).parent
+    port = 8000
+    print(f"Starting game server at http://localhost:{port}/index.html")
+    print("Press Ctrl+C to stop.")
+
+    handler = lambda *args, **kwargs: SimpleHTTPRequestHandler(*args, directory=str(root), **kwargs)
+    server = ThreadingHTTPServer(("0.0.0.0", port), handler)
+    server.serve_forever()
 
 PAR_VALUES = [3, 4, 5, 3, 4, 5, 3, 4, 5]
 

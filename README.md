@@ -1,35 +1,19 @@
 # Codex-Project-Repo
 
-A workspace for building projects with GitHub Copilot / Codex.
+A browser mini-golf game where you can play with friends locally.
 
-## Getting Started
+## Run the game
 
-1. **Clone the repo**
-   ```bash
-   git clone https://github.com/jordanar189/Codex-Project-Repo.git
-   cd Codex-Project-Repo
-   ```
-
-2. **Create a feature branch for each project**
-   ```bash
-   git checkout -b my-new-project
-   ```
-
-3. **Start building** — add your source files under `src/` (or create a project-specific folder at the root).
-
-## Repository Layout
-
-```
-Codex-Project-Repo/
-├── src/            # Shared / starter source files
-│   └── main.py     # Example Python entry point
-├── .gitignore      # Common ignored files
-└── README.md       # This file
+```bash
+python src/main.py
 ```
 
-## Tips for working with Codex
+Then open `http://localhost:8000/index.html`.
 
-- Keep file sizes manageable — Codex works best with focused, single-purpose files.
-- Use descriptive function and variable names; they act as in-line documentation for the model.
-- Break large tasks into small, well-named functions and let Codex fill in the implementation.
-- Commit often so you can easily compare AI-generated changes against your baseline.
+## Controls
+
+- Choose number of players and names when prompted.
+- Click + drag from the golf ball to aim.
+- Release mouse to shoot.
+- Avoid water and bounce around walls to reach the cup.
+- The game tracks strokes and score-to-par over 9 holes.
