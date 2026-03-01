@@ -7,6 +7,20 @@
     <link rel="stylesheet" href="style.css" />
   </head>
   <body>
+    <!-- Player setup overlay — shown before the game starts / on Play Again -->
+    <div id="setup-overlay" class="setup-overlay">
+      <div class="setup-card">
+        <h2>🏌️ Golf With Your Friends</h2>
+        <p>Play 9 holes of mini golf with up to 4 friends!</p>
+        <div class="setup-field">
+          <label for="player-count">Number of players (1–4)</label>
+          <input id="player-count" type="number" min="1" max="4" value="2" />
+        </div>
+        <div id="name-fields"></div>
+        <button id="start-game-btn" type="button">Tee Off! ⛳</button>
+      </div>
+    </div>
+
     <div class="app">
       <header>
         <h1>🏌️ Golf With Your Friends</h1>
@@ -17,7 +31,7 @@
         <section class="hud">
           <div><strong>Hole:</strong> <span id="hole-label">1 / 9</span></div>
           <div><strong>Par:</strong> <span id="par-label">3</span></div>
-          <div><strong>Turn:</strong> <span id="turn-label">Player 1</span></div>
+          <div><strong>Turn:</strong> <span id="turn-label">—</span></div>
           <div><strong>Strokes:</strong> <span id="stroke-label">0</span></div>
           <button id="reset-shot" type="button">Reset Ball</button>
         </section>
