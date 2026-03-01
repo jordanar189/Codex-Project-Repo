@@ -1,25 +1,12 @@
-"""Launch a local server for the Golf With Your Friends browser game."""
-
-from http.server import ThreadingHTTPServer, SimpleHTTPRequestHandler
-from pathlib import Path
-"""Terminal mini-golf party game: golf with your friends."""
+"""Golf With Your Friends — local web server launcher and terminal game utilities."""
 
 from __future__ import annotations
 
-from dataclasses import dataclass
 import random
+from dataclasses import dataclass
+from http.server import SimpleHTTPRequestHandler, ThreadingHTTPServer
+from pathlib import Path
 from typing import List
-
-def main() -> None:
-    """Serve the src directory so the game can be played in a browser."""
-    root = Path(__file__).parent
-    port = 8000
-    print(f"Starting game server at http://localhost:{port}/index.html")
-    print("Press Ctrl+C to stop.")
-
-    handler = lambda *args, **kwargs: SimpleHTTPRequestHandler(*args, directory=str(root), **kwargs)
-    server = ThreadingHTTPServer(("0.0.0.0", port), handler)
-    server.serve_forever()
 
 PAR_VALUES = [3, 4, 5, 3, 4, 5, 3, 4, 5]
 
@@ -153,22 +140,15 @@ def prompt_for_players() -> List[Player]:
 
 
 def main() -> None:
-    """Run the game loop for a full round of mini golf."""
-    print("🏌️ Welcome to Golf With Your Friends (Terminal Edition)!")
-    print("Play 9 holes, avoid hazards, and chase the best score versus par.")
+    """Serve the src directory so the game can be played in a browser."""
+    root = Path(__file__).parent
+    port = 8000
+    print(f"Starting game server at http://localhost:{port}/index.html")
+    print("Press Ctrl+C to stop.")
 
-    players = prompt_for_players()
-    holes = create_course()
-
-    for hole in holes:
-        for player in players:
-            strokes = play_hole(player, hole)
-            player.strokes_per_hole.append(strokes)
-
-        print_leaderboard(players)
-
-    print("\nRound complete! Final results:")
-    print_leaderboard(players)
+    handler = lambda *args, **kwargs: SimpleHTTPRequestHandler(*args, directory=str(root), **kwargs)
+    server = ThreadingHTTPServer(("0.0.0.0", port), handler)
+    server.serve_forever()
 
 
 if __name__ == "__main__":

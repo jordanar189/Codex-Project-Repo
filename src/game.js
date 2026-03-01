@@ -7,7 +7,11 @@ const turnLabel = document.getElementById('turn-label');
 const strokeLabel = document.getElementById('stroke-label');
 const scoreboard = document.getElementById('scoreboard');
 const resetShotBtn = document.getElementById('reset-shot');
-void 0;
+
+const setupOverlay = document.getElementById('setup-overlay');
+const playerCountInput = document.getElementById('player-count');
+const nameFields = document.getElementById('name-fields');
+const startGameBtn = document.getElementById('start-game-btn');
 
 const COURSE_TOTAL = 9;
 const WALLS = [
@@ -16,23 +20,61 @@ const WALLS = [
   { x: 740, y: 210, w: 20, h: 360 },
 ];
 
-const players = setupPlayers();
-let currentHole = makeHole(1);
+let players = [];
+let currentHole = null;
 let currentPlayerIndex = 0;
 let aiming = false;
 let aimPoint = { x: 0, y: 0 };
 let gameFinished = false;
+let gameStarted = false;
 
-function setupPlayers() {
-  const count = Number.parseInt(prompt('How many friends are playing? (1-4)', '2'), 10);
-  const totalPlayers = Number.isNaN(count) ? 2 : Math.max(1, Math.min(4, count));
-  const out = [];
-  for (let i = 1; i <= totalPlayers; i += 1) {
-    const name = prompt(`Name for Player ${i}`, `Player ${i}`) || `Player ${i}`;
-    out.push({ name: name.trim() || `Player ${i}`, strokes: [], completed: false });
-  }
-  return out;
+// Canvas scale factors — cached and updated on resize to avoid layout thrashing
+let canvasScaleX = 1;
+let canvasScaleY = 1;
+function updateCanvasScale() {
+  const rect = canvas.getBoundingClientRect();
+  canvasScaleX = canvas.width / rect.width;
+  canvasScaleY = canvas.height / rect.height;
 }
+window.addEventListener('resize', updateCanvasScale);
+updateCanvasScale();
+
+// ── Setup overlay ─────────────────────────────────────────────────────────────
+
+function updateNameFields() {
+  const count = Math.max(1, Math.min(4, Number.parseInt(playerCountInput.value, 10) || 2));
+  nameFields.innerHTML = '';
+  for (let i = 1; i <= count; i += 1) {
+    const div = document.createElement('div');
+    div.className = 'setup-field';
+    div.innerHTML = `<label for="pname-${i}">Player ${i} name</label><input id="pname-${i}" type="text" placeholder="Player ${i}" maxlength="20" />`;
+    nameFields.appendChild(div);
+  }
+}
+
+playerCountInput.addEventListener('input', updateNameFields);
+updateNameFields();
+
+startGameBtn.addEventListener('click', () => {
+  const count = Math.max(1, Math.min(4, Number.parseInt(playerCountInput.value, 10) || 2));
+  players = [];
+  for (let i = 1; i <= count; i += 1) {
+    const input = document.getElementById(`pname-${i}`);
+    const name = input?.value.trim() || `Player ${i}`;
+    players.push({ name, strokes: [], completed: false });
+  }
+  currentHole = makeHole(1);
+  currentPlayerIndex = 0;
+  gameFinished = false;
+  setupOverlay.classList.add('hidden');
+  updateHud();
+  if (!gameStarted) {
+    gameStarted = true;
+    gameLoop();
+  }
+});
+
+// ── Course geometry ───────────────────────────────────────────────────────────
 
 function makeHole(number) {
   const rng = mulberry32(number * 1977);
@@ -71,7 +113,10 @@ function makeHole(number) {
   };
 }
 
+// ── Drawing ───────────────────────────────────────────────────────────────────
+
 function draw() {
+  if (!currentHole) return;
   drawCourse();
   drawBall();
 
@@ -130,7 +175,10 @@ function drawAimLine() {
   ctx.stroke();
 }
 
+// ── Physics ───────────────────────────────────────────────────────────────────
+
 function updateBall() {
+  if (!currentHole) return;
   const ball = currentHole.ball;
   if (!ball.moving) return;
 
@@ -221,6 +269,8 @@ function reachedCup(ball) {
   return Math.hypot(dx, dy) < currentHole.cup.radius - 2 && speed < 3;
 }
 
+// ── Game logic ────────────────────────────────────────────────────────────────
+
 function shoot(targetX, targetY) {
   const ball = currentHole.ball;
   if (ball.moving || players[currentPlayerIndex].completed || gameFinished) return;
@@ -290,47 +340,95 @@ function renderScoreboard(final = false) {
       <thead><tr><th>Player</th><th>Holes</th><th>Total</th><th>To Par</th></tr></thead>
       <tbody>${rows}</tbody>
     </table>
+    ${final ? '<button id="play-again-btn" type="button" style="margin-top:0.75rem;width:100%">Play Again 🏌️</button>' : ''}
   `;
 }
 
+// Single delegated listener handles the Play Again button whenever it appears
+scoreboard.addEventListener('click', (event) => {
+  if (event.target.id !== 'play-again-btn') return;
+  gameFinished = false;
+  gameStarted = false;
+  players = [];
+  currentHole = null;
+  currentPlayerIndex = 0;
+  scoreboard.innerHTML = '';
+  turnLabel.textContent = '—';
+  strokeLabel.textContent = '0';
+  holeLabel.textContent = '1 / 9';
+  parLabel.textContent = '—';
+  updateNameFields();
+  setupOverlay.classList.remove('hidden');
+});
+
 function updateHud() {
+  if (!currentHole) return;
   holeLabel.textContent = `${currentHole.number} / ${COURSE_TOTAL}`;
   parLabel.textContent = currentHole.par;
-  turnLabel.textContent = players[currentPlayerIndex].name;
+  turnLabel.textContent = players[currentPlayerIndex]?.name ?? '—';
   strokeLabel.textContent = currentHole.strokesThisTurn;
   renderScoreboard();
 }
 
-canvas.addEventListener('mousedown', (event) => {
-  if (gameFinished) return;
-  aiming = true;
+// ── Input handling ────────────────────────────────────────────────────────────
+
+function getCanvasPos(clientX, clientY) {
   const rect = canvas.getBoundingClientRect();
-  aimPoint = { x: event.clientX - rect.left, y: event.clientY - rect.top };
+  return { x: (clientX - rect.left) * canvasScaleX, y: (clientY - rect.top) * canvasScaleY };
+}
+
+canvas.addEventListener('mousedown', (event) => {
+  if (gameFinished || !gameStarted) return;
+  aiming = true;
+  aimPoint = getCanvasPos(event.clientX, event.clientY);
 });
 
 canvas.addEventListener('mousemove', (event) => {
   if (!aiming) return;
-  const rect = canvas.getBoundingClientRect();
-  aimPoint = { x: event.clientX - rect.left, y: event.clientY - rect.top };
+  aimPoint = getCanvasPos(event.clientX, event.clientY);
 });
 
 canvas.addEventListener('mouseup', (event) => {
   if (!aiming) return;
   aiming = false;
-  const rect = canvas.getBoundingClientRect();
-  const targetX = event.clientX - rect.left;
-  const targetY = event.clientY - rect.top;
-  shoot(targetX, targetY);
+  const { x, y } = getCanvasPos(event.clientX, event.clientY);
+  shoot(x, y);
 });
 
+canvas.addEventListener('touchstart', (event) => {
+  event.preventDefault();
+  if (gameFinished || !gameStarted) return;
+  aiming = true;
+  const touch = event.touches[0];
+  aimPoint = getCanvasPos(touch.clientX, touch.clientY);
+}, { passive: false });
+
+canvas.addEventListener('touchmove', (event) => {
+  event.preventDefault();
+  if (!aiming) return;
+  const touch = event.touches[0];
+  aimPoint = getCanvasPos(touch.clientX, touch.clientY);
+}, { passive: false });
+
+canvas.addEventListener('touchend', (event) => {
+  event.preventDefault();
+  if (!aiming) return;
+  aiming = false;
+  const touch = event.changedTouches[0];
+  const { x, y } = getCanvasPos(touch.clientX, touch.clientY);
+  shoot(x, y);
+}, { passive: false });
+
 resetShotBtn.addEventListener('click', () => {
+  if (!currentHole || currentHole.ball.moving) return;
   const ball = currentHole.ball;
-  if (ball.moving) return;
   ball.x = currentHole.tee.x;
   ball.y = currentHole.tee.y;
   ball.startX = ball.x;
   ball.startY = ball.y;
 });
+
+// ── Game loop ─────────────────────────────────────────────────────────────────
 
 function gameLoop() {
   updateBall();
@@ -348,6 +446,3 @@ function mulberry32(seed) {
     return ((t ^ (t >>> 14)) >>> 0) / 4294967296;
   };
 }
-
-updateHud();
-gameLoop();

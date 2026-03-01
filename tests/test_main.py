@@ -1,7 +1,9 @@
 import unittest
 from pathlib import Path
+from unittest.mock import patch
 
-from src import main
+from src.main import Hole, Player, calculate_shot_result, create_course
+import src.main as main_module
 
 
 class MainTests(unittest.TestCase):
@@ -12,13 +14,8 @@ class MainTests(unittest.TestCase):
         self.assertTrue((src_dir / "game.js").exists())
 
     def test_main_module_has_entrypoint(self):
-        self.assertTrue(callable(main.main))
-from unittest.mock import patch
+        self.assertTrue(callable(main_module.main))
 
-from src.main import Hole, Player, calculate_shot_result, create_course
-
-
-class MainTests(unittest.TestCase):
     def test_create_course_has_9_holes(self):
         holes = create_course(seed=123)
         self.assertEqual(9, len(holes))
