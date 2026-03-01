@@ -1,0 +1,81 @@
+:root {
+  color-scheme: dark;
+  font-family: Inter, Segoe UI, Roboto, sans-serif;
+}
+
+body {
+  margin: 0;
+  background: radial-gradient(circle at top, #243d30, #0e1f17 55%);
+  color: #f4f7f2;
+}
+
+.app {
+  max-width: 1060px;
+  margin: 0 auto;
+  padding: 1rem;
+}
+
+header h1 {
+  margin-bottom: 0.3rem;
+}
+
+header p {
+  margin-top: 0;
+  color: #c7d3c5;
+}
+
+.hud {
+  display: grid;
+  grid-template-columns: repeat(5, auto);
+  gap: 1rem;
+  align-items: center;
+  margin-bottom: 0.8rem;
+  background: rgba(6, 12, 10, 0.45);
+  border: 1px solid rgba(180, 220, 190, 0.2);
+  border-radius: 10px;
+  padding: 0.8rem;
+}
+
+button {
+  background: #3a8f54;
+  border: none;
+  color: white;
+  padding: 0.5rem 0.75rem;
+  border-radius: 8px;
+  cursor: pointer;
+}
+
+button:hover {
+  background: #46aa63;
+}
+
+#course {
+  width: 100%;
+  border-radius: 12px;
+  border: 3px solid #dbe8d8;
+  background: #4aa35f;
+  box-shadow: 0 18px 30px rgba(0, 0, 0, 0.35);
+}
+
+.scoreboard {
+  margin-top: 0.8rem;
+  background: rgba(6, 12, 10, 0.55);
+  border: 1px solid rgba(180, 220, 190, 0.2);
+  border-radius: 10px;
+  padding: 0.7rem;
+}
+
+.scoreboard table {
+  width: 100%;
+  border-collapse: collapse;
+}
+
+.scoreboard th,
+.scoreboard td {
+  padding: 0.35rem;
+  text-align: left;
+}
+
+.scoreboard tr:nth-child(even) {
+  background: rgba(255, 255, 255, 0.05);
+}

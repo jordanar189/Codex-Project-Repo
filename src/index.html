@@ -1,0 +1,33 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Golf With Your Friends</title>
+    <link rel="stylesheet" href="style.css" />
+  </head>
+  <body>
+    <div class="app">
+      <header>
+        <h1>🏌️ Golf With Your Friends</h1>
+        <p>Drag from the golf ball to aim. Release to shoot.</p>
+      </header>
+
+      <main>
+        <section class="hud">
+          <div><strong>Hole:</strong> <span id="hole-label">1 / 9</span></div>
+          <div><strong>Par:</strong> <span id="par-label">3</span></div>
+          <div><strong>Turn:</strong> <span id="turn-label">Player 1</span></div>
+          <div><strong>Strokes:</strong> <span id="stroke-label">0</span></div>
+          <button id="reset-shot" type="button">Reset Ball</button>
+        </section>
+
+        <canvas id="course" width="1000" height="600" aria-label="Mini golf course"></canvas>
+
+        <section class="scoreboard" id="scoreboard"></section>
+      </main>
+    </div>
+
+    <script src="game.js"></script>
+  </body>
+</html>

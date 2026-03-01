@@ -1,14 +1,20 @@
-"""
-main.py – starter entry point for Codex-Project-Repo.
+"""Launch a local server for the Golf With Your Friends browser game."""
 
-Replace or extend this file as your project grows.
-"""
+from http.server import ThreadingHTTPServer, SimpleHTTPRequestHandler
+from pathlib import Path
 
 
-def greet(name: str) -> str:
-    """Return a greeting string for the given name."""
-    return f"Hello, {name}! Ready to build something great."
+def main() -> None:
+    """Serve the src directory so the game can be played in a browser."""
+    root = Path(__file__).parent
+    port = 8000
+    print(f"Starting game server at http://localhost:{port}/index.html")
+    print("Press Ctrl+C to stop.")
+
+    handler = lambda *args, **kwargs: SimpleHTTPRequestHandler(*args, directory=str(root), **kwargs)
+    server = ThreadingHTTPServer(("0.0.0.0", port), handler)
+    server.serve_forever()
 
 
 if __name__ == "__main__":
-    print(greet("World"))
+    main()
