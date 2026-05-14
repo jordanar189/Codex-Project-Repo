@@ -54,6 +54,25 @@
         <div id="rankings-list" class="list ranked"></div>
         <div id="rankings-empty" class="empty hidden">No results.</div>
       </section>
+
+      <!-- Leagues screen -->
+      <section id="screen-leagues" class="screen">
+        <div id="leagues-list-view">
+          <button id="new-league-btn" class="primary-btn">+ New League</button>
+          <div id="leagues-list" class="list"></div>
+          <div id="leagues-empty" class="empty hidden">No leagues yet. Create one to get started.</div>
+        </div>
+        <div id="league-detail-view" class="hidden">
+          <button id="league-back" class="back-btn">&#8249; All leagues</button>
+          <div id="league-detail-head"></div>
+          <div class="segmented" id="league-tabs">
+            <button data-view="standings" class="active">Standings</button>
+            <button data-view="scoreboard">Scoreboard</button>
+            <button data-view="rosters">Rosters</button>
+          </div>
+          <div id="league-view-content"></div>
+        </div>
+      </section>
     </main>
 
     <!-- Player detail sheet -->
@@ -63,6 +82,26 @@
         <div class="sheet-handle"></div>
         <button id="detail-close" class="sheet-close" aria-label="Close">Done</button>
         <div id="detail-content"></div>
+      </div>
+    </div>
+
+    <!-- Create league sheet -->
+    <div id="create-sheet" class="sheet hidden">
+      <div class="sheet-backdrop" data-close="create-sheet"></div>
+      <div class="sheet-card">
+        <div class="sheet-handle"></div>
+        <button class="sheet-close" data-close="create-sheet">Cancel</button>
+        <div id="create-content"></div>
+      </div>
+    </div>
+
+    <!-- Roster editor sheet -->
+    <div id="roster-sheet" class="sheet hidden">
+      <div class="sheet-backdrop" id="roster-backdrop"></div>
+      <div class="sheet-card">
+        <div class="sheet-handle"></div>
+        <button class="sheet-close" id="roster-done">Done</button>
+        <div id="roster-content"></div>
       </div>
     </div>
 
@@ -77,6 +116,10 @@
       <button class="tab" data-screen="rankings">
         <span class="tab-icon">&#9733;</span>
         <span>Rankings</span>
+      </button>
+      <button class="tab" data-screen="leagues">
+        <span class="tab-icon">&#9874;</span>
+        <span>Leagues</span>
       </button>
     </nav>
   </div>

@@ -17,11 +17,12 @@ import csv
 import io
 import json
 import os
+import secrets
 import threading
 import time
 import urllib.error
 import urllib.request
-from datetime import date
+from datetime import date, datetime, timezone
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from urllib.parse import urlparse, parse_qs
 
@@ -274,6 +275,292 @@ def player_detail(player, scoring="ppr"):
 
 
 # --------------------------------------------------------------------------
+# Fantasy league logic (pure, no network) - unit tested in tests/test_main.py
+# --------------------------------------------------------------------------
+
+def generate_schedule(team_ids):
+    """Build a round-robin schedule from a list of team ids.
+
+    Returns a list of ``{"week", "matchups", "byes"}`` dicts. With an odd
+    number of teams, one team sits out (a bye) each week. Pure function.
+    """
+    teams = list(team_ids)
+    bye_marker = None
+    if len(teams) % 2 == 1:
+        bye_marker = "__bye__"
+        teams.append(bye_marker)
+    count = len(teams)
+    schedule = []
+    rotation = teams[:]
+    for week in range(1, count):  # count-1 rounds covers every pairing once
+        matchups, byes = [], []
+        for i in range(count // 2):
+            a, b = rotation[i], rotation[count - 1 - i]
+            if a == bye_marker:
+                byes.append(b)
+            elif b == bye_marker:
+                byes.append(a)
+            else:
+                matchups.append([a, b])
+        schedule.append({"week": week, "matchups": matchups, "byes": byes})
+        # Rotate all but the first entry clockwise.
+        rotation = [rotation[0], rotation[-1]] + rotation[1:-1]
+    return schedule
+
+
+def team_week_score(players, roster, week, scoring="ppr"):
+    """Total fantasy points a roster scored in one week, plus a per-player
+    breakdown. ``players`` is a parsed players dict. Pure function."""
+    field = _scoring_field(scoring)
+    total = 0.0
+    breakdown = []
+    for pid in roster:
+        player = players.get(pid)
+        games = (
+            [g for g in player["games"] if g["week"] == week] if player else []
+        )
+        points = games[0][field] if games else 0
+        total += points
+        breakdown.append({
+            "id": pid,
+            "name": player["name"] if player else pid,
+            "position": player["position"] if player else "",
+            "team": player["team"] if player else "",
+            "headshot_url": player["headshot_url"] if player else "",
+            "points": points,
+            "played": bool(games),
+        })
+    breakdown.sort(key=lambda p: p["points"], reverse=True)
+    return round(total, 2), breakdown
+
+
+def _team_lookup(league):
+    return {team["id"]: team for team in league["teams"]}
+
+
+def league_scoreboard(league, players, week):
+    """Head-to-head matchups for one week with scores and roster breakdowns."""
+    teams = _team_lookup(league)
+    scoring = league.get("scoring", "ppr")
+    week_plan = next((w for w in league["schedule"] if w["week"] == week), None)
+    matchups = []
+    byes = []
+    if week_plan:
+        for home_id, away_id in week_plan["matchups"]:
+            home_pts, home_roster = team_week_score(
+                players, teams[home_id]["roster"], week, scoring)
+            away_pts, away_roster = team_week_score(
+                players, teams[away_id]["roster"], week, scoring)
+            played = any(p["played"] for p in home_roster + away_roster)
+            matchups.append({
+                "home": {"team_id": home_id, "name": teams[home_id]["name"],
+                         "points": home_pts, "roster": home_roster},
+                "away": {"team_id": away_id, "name": teams[away_id]["name"],
+                         "points": away_pts, "roster": away_roster},
+                "played": played,
+            })
+        byes = [{"team_id": tid, "name": teams[tid]["name"]}
+                for tid in week_plan["byes"]]
+    return {"week": week, "matchups": matchups, "byes": byes}
+
+
+def league_standings(league, players):
+    """Win/loss records and points for/against, sorted best-first.
+
+    A matchup only counts once at least one rostered player has a game that
+    week, so unplayed weeks don't drag every team to 0-0.
+    """
+    teams = _team_lookup(league)
+    scoring = league.get("scoring", "ppr")
+    table = {
+        tid: {"team_id": tid, "name": team["name"], "wins": 0, "losses": 0,
+              "ties": 0, "points_for": 0.0, "points_against": 0.0}
+        for tid, team in teams.items()
+    }
+    for week_plan in league["schedule"]:
+        week = week_plan["week"]
+        for home_id, away_id in week_plan["matchups"]:
+            home_pts, home_roster = team_week_score(
+                players, teams[home_id]["roster"], week, scoring)
+            away_pts, away_roster = team_week_score(
+                players, teams[away_id]["roster"], week, scoring)
+            if not any(p["played"] for p in home_roster + away_roster):
+                continue
+            home, away = table[home_id], table[away_id]
+            home["points_for"] += home_pts
+            home["points_against"] += away_pts
+            away["points_for"] += away_pts
+            away["points_against"] += home_pts
+            if home_pts > away_pts:
+                home["wins"] += 1
+                away["losses"] += 1
+            elif away_pts > home_pts:
+                away["wins"] += 1
+                home["losses"] += 1
+            else:
+                home["ties"] += 1
+                away["ties"] += 1
+    rows = list(table.values())
+    for row in rows:
+        row["points_for"] = round(row["points_for"], 2)
+        row["points_against"] = round(row["points_against"], 2)
+        row["games"] = row["wins"] + row["losses"] + row["ties"]
+    rows.sort(key=lambda r: (r["wins"], r["points_for"]), reverse=True)
+    for rank, row in enumerate(rows, start=1):
+        row["rank"] = rank
+    return rows
+
+
+def league_view(league, players):
+    """Full league payload: teams with resolved rosters, schedule, standings."""
+    scoring = league.get("scoring", "ppr")
+    teams = []
+    for team in league["teams"]:
+        roster = []
+        for pid in team["roster"]:
+            player = players.get(pid)
+            if player:
+                roster.append(player_summary(player, scoring))
+            else:
+                roster.append({"id": pid, "name": pid, "position": "",
+                               "team": "", "headshot_url": "", "points": 0})
+        teams.append({
+            "id": team["id"],
+            "name": team["name"],
+            "roster_ids": list(team["roster"]),
+            "roster": roster,
+        })
+    weeks = [w["week"] for w in league["schedule"]]
+    return {
+        "id": league["id"],
+        "name": league["name"],
+        "season": league["season"],
+        "scoring": scoring,
+        "created_at": league.get("created_at"),
+        "teams": teams,
+        "schedule": league["schedule"],
+        "standings": league_standings(league, players),
+        "weeks": weeks,
+    }
+
+
+# --------------------------------------------------------------------------
+# League store - persists leagues to a JSON file on disk
+# --------------------------------------------------------------------------
+
+DATA_DIR = os.path.join(
+    os.path.dirname(os.path.dirname(os.path.abspath(__file__))), ".data"
+)
+LEAGUES_PATH = os.path.join(DATA_DIR, "leagues.json")
+
+
+def _new_id():
+    return secrets.token_hex(4)
+
+
+def _now_iso():
+    return datetime.now(timezone.utc).replace(microsecond=0).isoformat()
+
+
+class LeagueStore:
+    """Thread-safe CRUD for fantasy leagues backed by a single JSON file."""
+
+    def __init__(self, path=LEAGUES_PATH):
+        self.path = path
+        self._lock = threading.Lock()
+        self._leagues = {}
+        os.makedirs(os.path.dirname(self.path), exist_ok=True)
+        self._load()
+
+    def _load(self):
+        if not os.path.exists(self.path):
+            return
+        try:
+            with open(self.path, "r", encoding="utf-8") as fh:
+                data = json.load(fh)
+            for league in data.get("leagues", []):
+                self._leagues[league["id"]] = league
+        except (json.JSONDecodeError, KeyError, OSError):
+            # A corrupt or unreadable file shouldn't crash the server; start
+            # empty and let the next save rewrite it cleanly.
+            self._leagues = {}
+
+    def _save(self):
+        """Write all leagues to disk. Caller must hold the lock."""
+        tmp = self.path + ".tmp"
+        with open(tmp, "w", encoding="utf-8") as fh:
+            json.dump({"leagues": list(self._leagues.values())}, fh, indent=2)
+        os.replace(tmp, self.path)
+
+    def list(self):
+        with self._lock:
+            return [
+                {"id": lg["id"], "name": lg["name"], "season": lg["season"],
+                 "scoring": lg["scoring"], "team_count": len(lg["teams"]),
+                 "created_at": lg.get("created_at")}
+                for lg in sorted(self._leagues.values(),
+                                 key=lambda l: l.get("created_at") or "",
+                                 reverse=True)
+            ]
+
+    def get(self, league_id):
+        with self._lock:
+            return self._leagues.get(league_id)
+
+    def create(self, name, season, scoring, team_names):
+        name = (name or "").strip() or "Untitled League"
+        scoring = (scoring or "ppr").lower()
+        if scoring not in SCORING_FIELD:
+            scoring = "ppr"
+        clean_names = [n.strip() for n in team_names if n and n.strip()]
+        if len(clean_names) < 2:
+            raise ValueError("a league needs at least 2 teams")
+        if len(clean_names) > 16:
+            raise ValueError("a league can have at most 16 teams")
+        teams = [{"id": _new_id(), "name": n, "roster": []}
+                 for n in clean_names]
+        league = {
+            "id": _new_id(),
+            "name": name,
+            "season": int(season),
+            "scoring": scoring,
+            "created_at": _now_iso(),
+            "teams": teams,
+            "schedule": generate_schedule([t["id"] for t in teams]),
+        }
+        with self._lock:
+            self._leagues[league["id"]] = league
+            self._save()
+        return league
+
+    def set_roster(self, league_id, team_id, player_ids):
+        with self._lock:
+            league = self._leagues.get(league_id)
+            if league is None:
+                raise KeyError("league not found")
+            team = next((t for t in league["teams"] if t["id"] == team_id), None)
+            if team is None:
+                raise KeyError("team not found")
+            # De-dupe while preserving order.
+            seen = set()
+            roster = []
+            for pid in player_ids:
+                if pid and pid not in seen:
+                    seen.add(pid)
+                    roster.append(pid)
+            team["roster"] = roster
+            self._save()
+            return league
+
+    def delete(self, league_id):
+        with self._lock:
+            existed = self._leagues.pop(league_id, None) is not None
+            if existed:
+                self._save()
+            return existed
+
+
+# --------------------------------------------------------------------------
 # Data store - fetches + caches nflverse CSVs (network)
 # --------------------------------------------------------------------------
 
@@ -347,6 +634,7 @@ class NFLData:
 # --------------------------------------------------------------------------
 
 DATA = NFLData()
+LEAGUES = LeagueStore()
 
 CONTENT_TYPES = {
     ".html": "text/html; charset=utf-8",
@@ -374,6 +662,19 @@ class Handler(BaseHTTPRequestHandler):
 
     def _send_error_json(self, status, message):
         self._send_json({"error": message}, status=status)
+
+    def _read_json_body(self):
+        length = int(self.headers.get("Content-Length") or 0)
+        if length <= 0:
+            return {}
+        raw = self.rfile.read(length)
+        try:
+            data = json.loads(raw.decode("utf-8"))
+        except (json.JSONDecodeError, UnicodeDecodeError):
+            raise ValueError("request body is not valid JSON")
+        if not isinstance(data, dict):
+            raise ValueError("request body must be a JSON object")
+        return data
 
     def _season_param(self, params):
         raw = params.get("season", [None])[0]
@@ -463,7 +764,94 @@ class Handler(BaseHTTPRequestHandler):
             self._send_json(payload)
             return
 
+        if path == "/api/leagues":
+            self._send_json({"leagues": LEAGUES.list()})
+            return
+
+        if path.startswith("/api/leagues/"):
+            parts = path[len("/api/leagues/"):].split("/")
+            league = LEAGUES.get(parts[0])
+            if league is None:
+                self._send_error_json(404, "league not found")
+                return
+            players = DATA.players(league["season"])
+            if len(parts) == 1:
+                self._send_json(league_view(league, players))
+                return
+            if len(parts) == 2 and parts[1] == "scoreboard":
+                week_raw = params.get("week", [None])[0]
+                if not week_raw:
+                    self._send_error_json(400, "week is required")
+                    return
+                self._send_json(league_scoreboard(league, players, int(week_raw)))
+                return
+            self._send_error_json(404, "unknown endpoint")
+            return
+
         self._send_error_json(404, "unknown endpoint")
+
+    # -- API routes: POST / DELETE ----------------------------------------
+
+    def do_POST(self):
+        path = urlparse(self.path).path
+        try:
+            if not path.startswith("/api/"):
+                self._send_error_json(404, "unknown endpoint")
+                return
+            self._handle_api_post(path, self._read_json_body())
+        except ValueError as exc:
+            self._send_error_json(400, str(exc))
+        except KeyError as exc:
+            self._send_error_json(404, exc.args[0] if exc.args else "not found")
+        except urllib.error.HTTPError as exc:
+            self._send_error_json(502, f"upstream data error ({exc.code})")
+        except urllib.error.URLError as exc:
+            self._send_error_json(502, f"could not reach data source: {exc.reason}")
+        except BrokenPipeError:
+            pass
+        except Exception as exc:  # pragma: no cover - defensive
+            self._send_error_json(500, f"server error: {exc}")
+
+    def _handle_api_post(self, path, body):
+        if path == "/api/leagues":
+            league = LEAGUES.create(
+                name=body.get("name", ""),
+                season=body.get("season") or DATA.default_season(),
+                scoring=body.get("scoring", "ppr"),
+                team_names=body.get("teams", []),
+            )
+            players = DATA.players(league["season"])
+            self._send_json(league_view(league, players), status=201)
+            return
+
+        if path.startswith("/api/leagues/") and path.endswith("/roster"):
+            league_id = path[len("/api/leagues/"):-len("/roster")]
+            team_id = body.get("team_id")
+            if not team_id:
+                raise ValueError("team_id is required")
+            league = LEAGUES.set_roster(
+                league_id, team_id, body.get("player_ids", []))
+            players = DATA.players(league["season"])
+            self._send_json(league_view(league, players))
+            return
+
+        self._send_error_json(404, "unknown endpoint")
+
+    def do_DELETE(self):
+        path = urlparse(self.path).path
+        try:
+            if path.startswith("/api/leagues/") and "/" not in path[len("/api/leagues/"):]:
+                league_id = path[len("/api/leagues/"):]
+                if LEAGUES.delete(league_id):
+                    self._send_json({"deleted": league_id})
+                else:
+                    self._send_error_json(404, "league not found")
+                return
+            self._send_error_json(404, "unknown endpoint")
+        except BrokenPipeError:
+            pass
+        except Exception as exc:  # pragma: no cover - defensive
+            self._send_error_json(500, f"server error: {exc}")
 
     # -- Static files ------------------------------------------------------
 

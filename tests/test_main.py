@@ -1,3 +1,6 @@
+import os
+import shutil
+import tempfile
 import unittest
 from pathlib import Path
 
@@ -9,6 +12,12 @@ from src.main import (
     search_players,
     rank_players,
     player_detail,
+    generate_schedule,
+    team_week_score,
+    league_scoreboard,
+    league_standings,
+    league_view,
+    LeagueStore,
     STAT_FIELDS,
 )
 import src.main as main_module
@@ -169,6 +178,167 @@ class PlayerDetailTests(unittest.TestCase):
         self.assertEqual(2, len(detail["games"]))
         self.assertEqual(550, detail["season_totals"]["passing_yards"])
         self.assertEqual("ppr", detail["scoring"])
+
+
+def make_league(scoring="ppr"):
+    """A two-team league: Alpha rosters QB1, Bravo rosters WR1."""
+    return {
+        "id": "lg1",
+        "name": "Test League",
+        "season": 2024,
+        "scoring": scoring,
+        "created_at": "2026-01-01T00:00:00+00:00",
+        "teams": [
+            {"id": "A", "name": "Alpha", "roster": ["QB1"]},
+            {"id": "B", "name": "Bravo", "roster": ["WR1"]},
+        ],
+        "schedule": generate_schedule(["A", "B"]),
+    }
+
+
+class ScheduleTests(unittest.TestCase):
+    def test_even_teams_play_full_round_robin(self):
+        schedule = generate_schedule(["A", "B", "C", "D"])
+        self.assertEqual(3, len(schedule))  # n-1 weeks
+        pairs = set()
+        for week in schedule:
+            self.assertEqual(2, len(week["matchups"]))
+            self.assertEqual([], week["byes"])
+            for a, b in week["matchups"]:
+                pairs.add(frozenset((a, b)))
+        # Every team faces every other team exactly once.
+        self.assertEqual(6, len(pairs))
+
+    def test_odd_teams_get_one_bye_per_week(self):
+        schedule = generate_schedule(["A", "B", "C"])
+        self.assertEqual(3, len(schedule))
+        for week in schedule:
+            self.assertEqual(1, len(week["matchups"]))
+            self.assertEqual(1, len(week["byes"]))
+        # Each team sits out exactly once.
+        byes = [t for week in schedule for t in week["byes"]]
+        self.assertEqual({"A", "B", "C"}, set(byes))
+        self.assertEqual(3, len(byes))
+
+
+class TeamScoringTests(unittest.TestCase):
+    def setUp(self):
+        self.players = parse_player_stats(SAMPLE_CSV)
+
+    def test_team_week_score_sums_roster(self):
+        # Week 1 PPR: QB1 = 24, WR1 = 26.
+        total, breakdown = team_week_score(
+            self.players, ["QB1", "WR1"], 1, "ppr")
+        self.assertEqual(50.0, total)
+        self.assertEqual(2, len(breakdown))
+        self.assertTrue(all(p["played"] for p in breakdown))
+        # Breakdown is sorted high-to-low.
+        self.assertEqual("WR1", breakdown[0]["id"])
+
+    def test_team_week_score_handles_missing_and_unknown(self):
+        # WR1 has no week 2 game; "GHOST" is not a real player id.
+        total, breakdown = team_week_score(
+            self.players, ["WR1", "GHOST"], 2, "ppr")
+        self.assertEqual(0, total)
+        self.assertTrue(all(not p["played"] for p in breakdown))
+
+    def test_team_week_score_follows_scoring_setting(self):
+        # WR1 week 1: standard 18, PPR 26.
+        std, _ = team_week_score(self.players, ["WR1"], 1, "standard")
+        ppr, _ = team_week_score(self.players, ["WR1"], 1, "ppr")
+        self.assertEqual(18.0, std)
+        self.assertEqual(26.0, ppr)
+
+
+class LeagueResultTests(unittest.TestCase):
+    def setUp(self):
+        self.players = parse_player_stats(SAMPLE_CSV)
+        self.league = make_league()
+
+    def test_scoreboard_reports_matchup_scores(self):
+        board = league_scoreboard(self.league, self.players, 1)
+        self.assertEqual(1, len(board["matchups"]))
+        matchup = board["matchups"][0]
+        self.assertTrue(matchup["played"])
+        self.assertEqual(24.0, matchup["home"]["points"])  # Alpha / QB1
+        self.assertEqual(26.0, matchup["away"]["points"])  # Bravo / WR1
+
+    def test_standings_award_win_to_higher_score(self):
+        table = league_standings(self.league, self.players)
+        top = table[0]
+        self.assertEqual("Bravo", top["name"])  # WR1 outscored QB1
+        self.assertEqual(1, top["wins"])
+        self.assertEqual(0, top["losses"])
+        self.assertEqual(26.0, top["points_for"])
+        self.assertEqual(24.0, top["points_against"])
+        self.assertEqual(1, top["rank"])
+
+    def test_standings_skip_weeks_with_no_games(self):
+        # Add a week nobody has stats for; it must not count.
+        self.league["schedule"] = [
+            {"week": 1, "matchups": [["A", "B"]], "byes": []},
+            {"week": 99, "matchups": [["A", "B"]], "byes": []},
+        ]
+        table = league_standings(self.league, self.players)
+        self.assertTrue(all(row["games"] == 1 for row in table))
+
+    def test_league_view_resolves_rosters(self):
+        view = league_view(self.league, self.players)
+        self.assertEqual([1], view["weeks"])
+        alpha = next(t for t in view["teams"] if t["name"] == "Alpha")
+        self.assertEqual(["QB1"], alpha["roster_ids"])
+        self.assertEqual("Test QB", alpha["roster"][0]["name"])
+
+
+class LeagueStoreTests(unittest.TestCase):
+    def setUp(self):
+        self.tmp = tempfile.mkdtemp()
+        self.path = os.path.join(self.tmp, "leagues.json")
+        self.store = LeagueStore(self.path)
+
+    def tearDown(self):
+        shutil.rmtree(self.tmp, ignore_errors=True)
+
+    def test_create_generates_ids_schedule_and_empty_rosters(self):
+        lg = self.store.create("My League", 2024, "ppr", ["A", "B", "C", "D"])
+        self.assertEqual("My League", lg["name"])
+        self.assertEqual(4, len(lg["teams"]))
+        self.assertEqual(3, len(lg["schedule"]))
+        self.assertTrue(all(t["roster"] == [] for t in lg["teams"]))
+        self.assertTrue(all(t["id"] for t in lg["teams"]))
+
+    def test_create_rejects_too_few_teams(self):
+        with self.assertRaises(ValueError):
+            self.store.create("X", 2024, "ppr", ["only one"])
+
+    def test_create_falls_back_to_ppr_for_unknown_scoring(self):
+        lg = self.store.create("L", 2024, "bogus", ["A", "B"])
+        self.assertEqual("ppr", lg["scoring"])
+
+    def test_set_roster_dedupes_and_persists(self):
+        lg = self.store.create("L", 2024, "ppr", ["A", "B"])
+        team_id = lg["teams"][0]["id"]
+        updated = self.store.set_roster(lg["id"], team_id, ["p1", "p2", "p1"])
+        team = next(t for t in updated["teams"] if t["id"] == team_id)
+        self.assertEqual(["p1", "p2"], team["roster"])
+
+    def test_set_roster_unknown_team_raises(self):
+        lg = self.store.create("L", 2024, "ppr", ["A", "B"])
+        with self.assertRaises(KeyError):
+            self.store.set_roster(lg["id"], "nope", ["p1"])
+
+    def test_leagues_persist_across_instances(self):
+        lg = self.store.create("Persisted", 2024, "ppr", ["A", "B"])
+        reloaded = LeagueStore(self.path)
+        again = reloaded.get(lg["id"])
+        self.assertIsNotNone(again)
+        self.assertEqual("Persisted", again["name"])
+
+    def test_delete_removes_league(self):
+        lg = self.store.create("L", 2024, "ppr", ["A", "B"])
+        self.assertTrue(self.store.delete(lg["id"]))
+        self.assertFalse(self.store.delete(lg["id"]))
+        self.assertIsNone(self.store.get(lg["id"]))
 
 
 class AssetTests(unittest.TestCase):

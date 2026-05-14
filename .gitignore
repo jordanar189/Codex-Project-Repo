@@ -23,6 +23,9 @@ yarn-error.log*
 dist/
 .cache/
 
+# App data (saved fantasy leagues)
+.data/
+
 # IDEs & editors
 .vscode/
 .idea/

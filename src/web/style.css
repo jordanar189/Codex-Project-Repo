@@ -415,3 +415,248 @@ html, body {
   font-weight: 600;
   margin-bottom: 12px;
 }
+
+/* ---- Buttons ---- */
+.primary-btn {
+  width: 100%;
+  background: linear-gradient(135deg, var(--accent), var(--accent-press));
+  color: #fff;
+  border: none;
+  border-radius: 13px;
+  padding: 13px;
+  font-size: 15px;
+  font-weight: 800;
+  letter-spacing: -0.01em;
+  cursor: pointer;
+  box-shadow: 0 4px 16px rgba(155, 107, 255, 0.32);
+}
+.primary-btn:active { transform: scale(0.99); }
+.primary-btn:disabled { opacity: 0.5; box-shadow: none; }
+.back-btn {
+  background: none;
+  border: none;
+  color: var(--accent);
+  font-size: 15px;
+  font-weight: 700;
+  cursor: pointer;
+  padding: 4px 0;
+  margin-bottom: 10px;
+}
+.ghost-btn {
+  background: var(--bg-card);
+  border: 0.5px solid var(--separator);
+  color: var(--text);
+  border-radius: 10px;
+  padding: 8px 14px;
+  font-size: 13px;
+  font-weight: 700;
+  cursor: pointer;
+}
+.danger-btn {
+  background: rgba(255, 92, 122, 0.12);
+  border: 0.5px solid rgba(255, 92, 122, 0.3);
+  color: #ff8499;
+  border-radius: 11px;
+  padding: 11px;
+  font-size: 14px;
+  font-weight: 700;
+  cursor: pointer;
+  width: 100%;
+  margin-top: 22px;
+}
+
+/* ---- Leagues list ---- */
+#new-league-btn { margin-bottom: 14px; }
+.league-card {
+  background: var(--bg-card);
+  border: 0.5px solid var(--separator);
+  border-radius: var(--radius);
+  padding: 14px 15px;
+  cursor: pointer;
+  transition: background 0.12s ease, transform 0.08s ease;
+}
+.league-card:active { background: var(--bg-card-press); transform: scale(0.992); }
+.league-card .name { font-size: 17px; font-weight: 800; letter-spacing: -0.02em; }
+.league-card .meta {
+  font-size: 13px;
+  color: var(--text-secondary);
+  margin-top: 3px;
+  font-weight: 500;
+}
+
+/* ---- League detail header ---- */
+.league-head h2 { font-size: 24px; font-weight: 800; letter-spacing: -0.025em; }
+.league-head .meta {
+  font-size: 13px;
+  color: var(--text-secondary);
+  margin-top: 3px;
+  font-weight: 500;
+}
+
+/* ---- Standings ---- */
+.standings { width: 100%; border-collapse: collapse; font-size: 14px; }
+.standings th, .standings td {
+  padding: 10px 8px;
+  text-align: right;
+  font-variant-numeric: tabular-nums;
+}
+.standings th {
+  font-size: 10px;
+  color: var(--text-tertiary);
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  font-weight: 800;
+  border-bottom: 0.5px solid var(--separator-strong);
+}
+.standings td { border-bottom: 0.5px solid var(--separator); color: var(--text-secondary); }
+.standings tr:last-child td { border-bottom: none; }
+.standings .team-cell { text-align: left; width: 100%; }
+.standings .team-cell .nm { color: var(--text); font-weight: 700; font-size: 15px; }
+.standings .rk {
+  text-align: center;
+  color: var(--text-tertiary);
+  font-weight: 800;
+  width: 26px;
+}
+.standings .rk.top { color: var(--accent); }
+.standings .rec { color: var(--text); font-weight: 700; }
+
+/* ---- Scoreboard ---- */
+.matchup-card {
+  background: var(--bg-card);
+  border: 0.5px solid var(--separator);
+  border-radius: var(--radius);
+  padding: 6px 14px;
+  margin-bottom: 8px;
+}
+.matchup-side {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 11px 0;
+  gap: 12px;
+}
+.matchup-side + .matchup-side { border-top: 0.5px solid var(--separator); }
+.matchup-side .nm { font-size: 15px; font-weight: 700; }
+.matchup-side .pts {
+  font-size: 20px;
+  font-weight: 800;
+  font-variant-numeric: tabular-nums;
+  letter-spacing: -0.02em;
+}
+.matchup-side.winner .nm { color: var(--accent); }
+.matchup-side.winner .pts { color: var(--accent); }
+.matchup-tag {
+  font-size: 10px;
+  font-weight: 800;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  color: var(--text-tertiary);
+  padding: 4px 0 2px;
+}
+.bye-note {
+  font-size: 13px;
+  color: var(--text-tertiary);
+  font-weight: 600;
+  padding: 6px 2px;
+}
+
+/* ---- Rosters ---- */
+.team-card {
+  background: var(--bg-card);
+  border: 0.5px solid var(--separator);
+  border-radius: var(--radius);
+  padding: 13px 14px;
+  margin-bottom: 8px;
+}
+.team-card-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+}
+.team-card-head .nm { font-size: 16px; font-weight: 800; letter-spacing: -0.02em; }
+.team-card-head .ct { font-size: 12px; color: var(--text-tertiary); font-weight: 700; }
+.roster-line {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 7px 0;
+  font-size: 14px;
+}
+.roster-line + .roster-line { border-top: 0.5px solid var(--separator); }
+.roster-line .nm { flex: 1; font-weight: 600; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.roster-line .pts {
+  font-weight: 800;
+  font-variant-numeric: tabular-nums;
+  color: var(--text-secondary);
+}
+.roster-empty { font-size: 13px; color: var(--text-tertiary); padding: 7px 0; font-weight: 500; }
+
+/* ---- Forms (create sheet) ---- */
+.sheet-title {
+  font-size: 22px;
+  font-weight: 800;
+  letter-spacing: -0.025em;
+  padding: 6px 0 2px;
+}
+.hint-line {
+  font-size: 13px;
+  color: var(--text-tertiary);
+  font-weight: 500;
+  margin-bottom: 14px;
+}
+.field { margin-bottom: 14px; }
+.field label {
+  display: block;
+  font-size: 12px;
+  font-weight: 800;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  color: var(--text-tertiary);
+  margin-bottom: 7px;
+}
+.field input, .field select, .field textarea {
+  width: 100%;
+  background: var(--bg-card);
+  border: 0.5px solid var(--separator);
+  border-radius: 11px;
+  padding: 11px 13px;
+  font-size: 16px;
+  color: var(--text);
+  font-family: inherit;
+}
+.field textarea { resize: vertical; min-height: 120px; line-height: 1.5; }
+.field input:focus, .field select:focus, .field textarea:focus {
+  outline: none;
+  border-color: var(--accent);
+}
+.field .hint { font-size: 12px; color: var(--text-tertiary); margin-top: 6px; font-weight: 500; }
+
+/* ---- Roster editor ---- */
+.roster-editor-search { margin: 14px 0 10px; }
+.roster-add-row {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  background: var(--bg-card);
+  border: 0.5px solid var(--separator);
+  border-radius: 12px;
+  padding: 9px 12px;
+  margin-bottom: 6px;
+}
+.roster-add-row .player-meta { flex: 1; min-width: 0; }
+.roster-add-row .player-name { font-size: 15px; }
+.pill-btn {
+  flex: 0 0 auto;
+  border: none;
+  border-radius: 999px;
+  width: 30px;
+  height: 30px;
+  font-size: 19px;
+  font-weight: 700;
+  line-height: 1;
+  cursor: pointer;
+}
+.pill-btn.add { background: var(--accent-soft); color: var(--accent); }
+.pill-btn.remove { background: rgba(255, 92, 122, 0.14); color: #ff8499; }
