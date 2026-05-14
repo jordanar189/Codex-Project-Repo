@@ -51,6 +51,19 @@ function avatar(url, name) {
   return img;
 }
 
+const KNOWN_POSITIONS = ["QB", "RB", "WR", "TE", "K"];
+
+function posPill(position) {
+  const pos = (position || "").toUpperCase();
+  const key = KNOWN_POSITIONS.includes(pos) ? pos.toLowerCase() : "na";
+  return el("span", `pos-pill pos-${key}`, pos || "—");
+}
+
+function playerSub(parts) {
+  const text = parts.filter(Boolean).join(" · ");
+  return text ? el("span", "sub-text", text) : null;
+}
+
 function showError(container, message) {
   container.innerHTML = "";
   container.appendChild(el("div", "error-banner", message));
@@ -74,7 +87,10 @@ function switchScreen(name) {
 function renderChipRow(container, values, current, onPick) {
   container.innerHTML = "";
   values.forEach((value) => {
-    const btn = el("button", value === current ? "active" : "", value);
+    let cls = "";
+    if (KNOWN_POSITIONS.includes(value)) cls += `pos-${value.toLowerCase()} `;
+    if (value === current) cls += "active";
+    const btn = el("button", cls.trim(), value);
     btn.addEventListener("click", () => onPick(value));
     container.appendChild(btn);
   });
@@ -89,9 +105,11 @@ function playerRow(p, opts = {}) {
   row.appendChild(avatar(p.headshot_url, p.name));
   const meta = el("div", "player-meta");
   meta.appendChild(el("div", "player-name", p.name));
-  const subParts = [p.position, p.team].filter(Boolean);
-  if (opts.sub) subParts.push(opts.sub);
-  meta.appendChild(el("div", "player-sub", subParts.join(" · ")));
+  const sub = el("div", "player-sub");
+  sub.appendChild(posPill(p.position));
+  const subText = playerSub([p.team, opts.sub]);
+  if (subText) sub.appendChild(subText);
+  meta.appendChild(sub);
   row.appendChild(meta);
   const pts = el("div", "player-points");
   pts.appendChild(el("div", "points-value", fmt(p.points)));
@@ -197,8 +215,11 @@ async function openDetail(playerId) {
     header.appendChild(avatar(p.headshot_url, p.name));
     const hmeta = el("div", "player-meta");
     hmeta.appendChild(el("h2", null, p.name));
-    hmeta.appendChild(el("div", "player-sub",
-      [p.position, p.team, `${p.season} season`].filter(Boolean).join(" · ")));
+    const hsub = el("div", "player-sub");
+    hsub.appendChild(posPill(p.position));
+    const hsubText = playerSub([p.team, `${p.season} season`]);
+    if (hsubText) hsub.appendChild(hsubText);
+    hmeta.appendChild(hsub);
     header.appendChild(hmeta);
     content.appendChild(header);
 
