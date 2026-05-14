@@ -1,0 +1,86 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover, maximum-scale=1" />
+  <meta name="apple-mobile-web-app-capable" content="yes" />
+  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
+  <meta name="theme-color" content="#0b0b0f" />
+  <title>Fantasy Football Stats</title>
+  <link rel="stylesheet" href="/style.css" />
+</head>
+<body>
+  <div id="app">
+    <!-- Top bar -->
+    <header class="topbar">
+      <div class="topbar-row">
+        <h1 id="screen-title">Players</h1>
+        <label class="season-picker">
+          <span>Season</span>
+          <select id="season-select"></select>
+        </label>
+      </div>
+    </header>
+
+    <main id="main">
+      <!-- Players screen -->
+      <section id="screen-players" class="screen active">
+        <div class="search-wrap">
+          <input id="search-input" type="search" placeholder="Search players, teams" autocomplete="off" />
+        </div>
+        <div id="players-positions" class="chip-row"></div>
+        <div id="players-list" class="list"></div>
+        <div id="players-empty" class="empty hidden">No players found.</div>
+      </section>
+
+      <!-- Rankings screen -->
+      <section id="screen-rankings" class="screen">
+        <div class="segmented" id="rankings-scope">
+          <button data-scope="season" class="active">Season</button>
+          <button data-scope="week">By week</button>
+        </div>
+        <div id="rankings-week-wrap" class="week-wrap hidden">
+          <label class="week-picker">
+            <span>Week</span>
+            <select id="rankings-week"></select>
+          </label>
+        </div>
+        <div class="chip-row" id="rankings-scoring">
+          <button data-scoring="ppr" class="active">PPR</button>
+          <button data-scoring="half">Half-PPR</button>
+          <button data-scoring="standard">Standard</button>
+        </div>
+        <div id="rankings-positions" class="chip-row"></div>
+        <div id="rankings-list" class="list ranked"></div>
+        <div id="rankings-empty" class="empty hidden">No results.</div>
+      </section>
+    </main>
+
+    <!-- Player detail sheet -->
+    <div id="detail-sheet" class="sheet hidden">
+      <div class="sheet-backdrop"></div>
+      <div class="sheet-card">
+        <div class="sheet-handle"></div>
+        <button id="detail-close" class="sheet-close" aria-label="Close">Done</button>
+        <div id="detail-content"></div>
+      </div>
+    </div>
+
+    <div id="loading" class="loading hidden"><div class="spinner"></div></div>
+
+    <!-- Bottom tab bar -->
+    <nav class="tabbar">
+      <button class="tab active" data-screen="players">
+        <span class="tab-icon">&#9737;</span>
+        <span>Players</span>
+      </button>
+      <button class="tab" data-screen="rankings">
+        <span class="tab-icon">&#9733;</span>
+        <span>Rankings</span>
+      </button>
+    </nav>
+  </div>
+
+  <script src="/app.js"></script>
+</body>
+</html>
