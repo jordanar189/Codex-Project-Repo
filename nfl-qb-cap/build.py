@@ -22,11 +22,20 @@ for pid,g in q.groupby('pid'):
             hist.append(dict(pid=pid,season=int(y),team=s['team'],cap_hit=s['cap_number']))
 h=pd.DataFrame(hist)
 h=h.groupby(['pid','season'],as_index=False).agg(team=('team','last'),cap_hit=('cap_hit','sum'))
-# contract APY in force: latest-signed deal with year_signed<=season<year_signed+years
+# contract APY in force: latest-signed deal with year_signed<=season<year_signed+years,
+# breaking same-year ties toward the team the player was rostered by. If that deal is clearly
+# with another team, a deal with the roster team signed the same year or later replaces it
+# (e.g. a reworked contract after a trade).
 def inforce(r):
-    c=cons[(cons.pid==r.pid)&(cons.year_signed<=r.season)&(cons.year_signed+cons.years>r.season)]
+    mine=cons[(cons.pid==r.pid)&(cons.year_signed<=r.season)]
+    c=mine[mine.year_signed+mine.years>r.season]
     if c.empty: return pd.Series([None,None])
-    c=c.sort_values(['year_signed','apy']).iloc[-1]
+    # multi-team labels like "DEN/KC" use abbreviations, so treat them as a possible match
+    same=lambda t: t==r.team or '/' in t
+    c=c.assign(same_team=c.team.map(same)).sort_values(['year_signed','same_team','apy']).iloc[-1]
+    if not same(c.team):
+        alt=mine[(mine.team==r.team)&(mine.year_signed>=c.year_signed)]
+        if not alt.empty: c=alt.sort_values(['year_signed','apy']).iloc[-1]
     return pd.Series([c.apy,int(c.year_signed)])
 h[['apy','signed']]=h.apply(inforce,axis=1)
 h['player']=h.pid.map(names)
